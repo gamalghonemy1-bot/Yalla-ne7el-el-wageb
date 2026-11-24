@@ -1,0 +1,60 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [main]
+    paths: ["mobile/**", ".github/workflows/build-apk.yml"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      API_URL: ${{ vars.API_URL }}
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check API_URL
+        run: |
+          if [ -z "$API_URL" ]; then
+            echo "::error::Set the repository variable API_URL (Settings > Secrets and variables > Actions > Variables), e.g. https://api.example.com or http://192.168.1.10:3000"
+            exit 1
+          fi
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Generate Android platform folder
+        run: |
+          flutter create --org com.yalla --project-name yalla_mobile --platforms=android /tmp/gen
+          cp -r /tmp/gen/android ./android
+
+      - name: Patch Android config (internet, http for dev, minSdk 23)
+        run: |
+          M=android/app/src/main/AndroidManifest.xml
+          sed -i '0,/<manifest[^>]*>/s//&\n    <uses-permission android:name="android.permission.INTERNET"\/>/' "$M"
+          case "$API_URL" in http://*) sed -i 's#<application#<application android:usesCleartextTraffic="true"#' "$M" ;; esac
+          G=$(ls android/app/build.gradle.kts android/app/build.gradle 2>/dev/null | head -1)
+          sed -i -E 's/minSdk(Version)?[ =]+flutter\.minSdkVersion/minSdk = 23/' "$G"
+          grep -n "minSdk" "$G"
+          grep -n "INTERNET\|cleartext" "$M"
+
+      - run: flutter pub get
+
+      - name: Build release APK
+        run: flutter build apk --release --dart-define=API_URL=$API_URL
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: yalla-apk
+          path: mobile/build/app/outputs/flutter-apk/app-release.apk
