@@ -1,0 +1,16 @@
+name: yalla_mobile
+description: يلا نحل الواجب - تطبيق ولي الأمر والطفل
+publish_to: none
+version: 0.1.0+1
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  http: ^1.2.0
+  flutter_secure_storage: ^9.2.2
+  google_fonts: ^6.2.1
+flutter:
+  uses-material-design: true
